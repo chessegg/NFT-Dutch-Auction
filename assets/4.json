@@ -1,0 +1,44 @@
+{
+  "name": "aTrix 4",
+  "symbol": "ATR",
+  "description": "Creating NFT site on devnet",
+  "seller_fee_basis_points": 250,
+  "image": "4.png",
+  "attributes": [
+    {
+      "trait_type": "Rabbit",
+      "value": "Bugs Bunny"
+    },
+    {
+      "trait_type": "Cereal",
+      "value": "No"
+    },
+    {
+      "trait_type": "Meme",
+      "value": "Yes"
+    },
+    {
+      "trait_type": "Item",
+      "value": "Carrot"
+    }
+  ],
+  "collection": {
+    "name": "aTrix NFT another test",
+    "family": "aTrix"
+  },
+  "properties": {
+    "files": [
+      {
+        "uri": "4.png",
+        "type": "image/png"
+      }
+    ],
+    "category": "image",
+    "creators": [
+      {
+        "address": "2MCFMHJCS7uyR1FuMKjwC9xPSHkn3goUAFn4iZd1jYmC",
+        "share": 100
+      }
+    ]
+  }
+}
