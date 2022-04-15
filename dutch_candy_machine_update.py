@@ -16,7 +16,7 @@ startAuction = False
 
 while True:
     now = datetime.now()
-    if now.month == 4 and now.day == 15 and now.hour == 13 and now.minute == 30 and now.second == 0:
+    if now.month == 4 and now.day == 15 and now.hour == 15 and now.minute == 15 and now.second == 0:
         startAuction = True
         break
 
@@ -27,7 +27,7 @@ if startAuction:
         now = datetime.now()
         #seconds is set to 38 below because it usually took about 22 seconds for candy machine to update. But I'm pretty sure this
         #is dependent on internet connection speed, so this number needs to be experimentally tested before the actual mint.
-        if (now.hour == 13) and now.second == 38:
+        if (now.hour == 15) and now.second == 38:
             curPrice -= 1
             data['price'] = curPrice
             with open ('config.json', 'w') as outfile:
