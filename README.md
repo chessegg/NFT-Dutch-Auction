@@ -1,11 +1,11 @@
-# Getting Started with Solana frontend
+# Solana NFT Dutch Auction
 
-Template for creating a Solana Dapp.
-This is just boilerplate code and everything will have to be written by the user afterwards. Its just a way to get started without having to write all the config yourself.
-This uses typescript and React.
+This project will run a Dutch style auction for NFT Mints on Solana. A Dutch auction is one where the price starts high and lowers every x minutes.
 
-yarn install to install the libraries, and yarn start to run.
+To get started, first run `yarn install` in the ./~/metaplex/js and ./~/metaplex/js/packages/candy-machine-ui folders. Then, from inside candy-machine-ui, run `yarn start` to start up the UI for the mint.
 
-It includes some stuff that I like, like tailwind and zustand.
+In order to change the settings for the mint (specifically the start date), you will need to go into the config.json file in the top level of the directory (solana-dapp-react-template). The `goLiveDate` attribute refers to the start date of the NFT mint. This date will need to match the datetime on line 18 in dutch_candy_machine_update.py.
 
-Feel free to make a pull request if you feel like you can improve this boilerplate for others.
+To run the mint, have the UI up (with yarn start from ./~/metaplex/js/packages/candy-machine-ui) and then run the dutch_candy_machine_update.py script anytime before the start date of the mint.
+
+This repository clones both the Metaplex candy machine v2 repository and this repository: https://github.com/caitsithlord/solana-dapp-react-template which adds the TailwindCSS and Zustand classes.
