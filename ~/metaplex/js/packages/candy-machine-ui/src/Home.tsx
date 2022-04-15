@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import * as anchor from '@project-serum/anchor';
 
 import styled from 'styled-components';
@@ -22,6 +22,7 @@ import { MintCountdown, DutchCountdown } from './MintCountdown';
 import { MintButton } from './MintButton';
 import { GatewayProvider } from '@civic/solana-gateway-react';
 import { sendTransaction } from './connection';
+import Atrix_logo from './Atrix.png';
 import { EventEmitter } from 'stream';
 import { start } from 'repl';
 import { time } from 'console';
@@ -62,7 +63,12 @@ const Home = (props: HomeProps) => {
   const [discountPrice, setDiscountPrice] = useState<anchor.BN>();
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [nextDiscountTime, setNextDiscountTime] = useState<Date>();
-  const [numIntervalsPassed, setNumIntervalsPassed] = useState(0);
+  const SOL_STARTING_PRICE = 10;
+  const PRICE_DECREMENT_AMT = 1; //drop price 1 sol after every time increment
+  const [nextDiscountPrice, setNextDiscountPrice] = useState(
+    SOL_STARTING_PRICE - PRICE_DECREMENT_AMT,
+  );
+  const componentKeyToIncrement = useRef(0);
   const wallet = useWallet();
   const rpcUrl = props.rpcHost;
   const DUTCH_INTERVAL_MINS = 1;
@@ -70,14 +76,24 @@ const Home = (props: HomeProps) => {
   useEffect(() => {
     console.log('getting called from use effect');
     refreshCandyMachineState();
-    CalcNextPriceDropTime();
+    calcNextPriceDrop();
   }, [wallet.publicKey, candyMachine?.id]); //when it first runs, wallet might not be connected, so need to run again when it knows public key (ie wallet connected)
+
+  useEffect(() => {
+    //not in the useEffect above otherwise calcNextPriceDrop() would be called twice when countdown hits 0
+    console.log('refreshing machine state because countdown timer hit 0');
+    refreshCandyMachineState();
+  }, [componentKeyToIncrement.current]);
 
   console.log('wallet outside useMemo here is', wallet);
   console.log('next discount time is', nextDiscountTime);
-  console.log('num intervals passed is ', numIntervalsPassed);
+  console.log(
+    'cur candy machine price is',
+    formatNumber.asNumber(candyMachine?.state.price),
+  );
+  console.log('next discount price is', nextDiscountPrice);
 
-  const CalcNextPriceDropTime = async () => {
+  const calcNextPriceDrop = async () => {
     console.log('inside calc next price fxn');
     if (candyMachine && candyMachine.state.goLiveDate) {
       let numIntervalsPassed;
@@ -90,15 +106,25 @@ const Home = (props: HomeProps) => {
       } else {
         //console.log(Math.floor(diff / (60000 * DUTCH_INTERVAL_MINS)));
         numIntervalsPassed = Math.floor(diff / (60000 * DUTCH_INTERVAL_MINS)); //60000 ms in a minute
-        //console.log(numIntervalsPassed);
+        //***FOR 10 MINUTE INTERVALS, ADD CURDATE.GETMINUTES() === 9 TO THE CHECK BELOW***
+        if (curDate.getSeconds() === 59) {
+          //to account for this fxn sometimes getting called 1 second before the current nextDiscountTime
+          console.log('inside setting new discount time');
+          numIntervalsPassed += 1;
+        }
       }
-      //console.log('start date exists, inside calc method');
+      console.log(
+        'num intervals passed from within calc fxn is',
+        numIntervalsPassed,
+      );
+      //setNextDiscountPrice(SOL_STARTING_PRICE - numIntervalsPassed - PRICE_DECREMENT_AMT);
       if (numIntervalsPassed === 0) {
         //console.log('calculating first price drop time');
         //console.log(toDate(candyMachine?.state.goLiveDate));
         const goLive: Date = toDate(candyMachine.state.goLiveDate)!;
         goLive.setMinutes(goLive.getMinutes() + DUTCH_INTERVAL_MINS);
         setNextDiscountTime(goLive);
+        setNextDiscountPrice(SOL_STARTING_PRICE - PRICE_DECREMENT_AMT);
       } else {
         if (numIntervalsPassed < 9) {
           //console.log('calculating next price drop time');
@@ -108,14 +134,10 @@ const Home = (props: HomeProps) => {
               DUTCH_INTERVAL_MINS * numIntervalsPassed +
               1,
           );
-          if (curDate.getSeconds() === 59) {
-            //to account for this fxn sometimes getting called 1 second before the current nextDiscountTime
-            console.log('inside setting new discount time');
-            discountTime.setMinutes(
-              discountTime.getMinutes() + DUTCH_INTERVAL_MINS,
-            );
-          }
           setNextDiscountTime(discountTime);
+          setNextDiscountPrice(
+            SOL_STARTING_PRICE - numIntervalsPassed - PRICE_DECREMENT_AMT,
+          );
           //console.log('next price drop time set to', discountTime);
         } else {
           numIntervalsPassed = -1;
@@ -214,7 +236,7 @@ const Home = (props: HomeProps) => {
             if (cndy.state.isWhitelistOnly) {
               active = false;
             }
-            console.log('There was a problem fetching whitelist token balance');
+            console.log('Not a valid whitelist user');
             console.log(e);
           }
         }
@@ -258,7 +280,15 @@ const Home = (props: HomeProps) => {
         if (candyMachine && !isSubscribed) {
           candyMachine.program.account.candyMachine
             .subscribe(candyMachine.id)
-            .on('change', () => {
+            .on('change', account => {
+              console.log('account is', account);
+              if (!anchorWallet) return;
+              //don't really need to set anything other than itemsRemaining,
+              //nothing else can really change by user manipulation
+              //   const numItemsRemaining = {account.data.map((value, key) => {
+              //     value.itemsAvailable;
+              // })};
+              //   setItemsRemaining(numItemsRemaining);
               refreshCandyMachineState();
             });
           setIsSubscribed(true);
@@ -412,246 +442,280 @@ const Home = (props: HomeProps) => {
   };
 
   return (
-    <Container style={{ marginTop: 100 }}>
-      <Container maxWidth="sm" style={{ position: 'relative' }}>
-        <Paper
-          style={{
-            padding: 24,
-            paddingBottom: 10,
-            backgroundColor: '#151A1F',
-            borderRadius: 6,
-          }}
-        >
-          {!wallet.connected ? (
-            <ConnectButton>Connect Wallet</ConnectButton>
-          ) : (
-            <>
-              {candyMachine && (
-                <Grid
-                  container
-                  direction="row"
-                  justifyContent="center"
-                  wrap="nowrap"
-                >
-                  <Grid item xs={3}>
-                    <Typography variant="body2" color="textSecondary">
-                      Remaining
-                    </Typography>
-                    <Typography
-                      variant="h6"
-                      color="textPrimary"
-                      style={{
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      {itemsRemaining}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Typography variant="body2" color="textSecondary">
-                      {isWhitelistUser && discountPrice
-                        ? 'Discount Price'
-                        : 'Price'}
-                    </Typography>
-                    <Typography
-                      variant="h6"
-                      color="textPrimary"
-                      style={{ fontWeight: 'bold' }}
-                    >
-                      {isWhitelistUser && discountPrice
-                        ? `◎ ${formatNumber.asNumber(discountPrice)}`
-                        : `◎ ${formatNumber.asNumber(
-                            candyMachine.state.price,
-                          )}`}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={5} style={{ justifyContent: 'center' }}>
-                    {!isActive || isPresale ? (
-                      <>
-                        <Typography variant="body2" color="textSecondary">
-                          Auction Format
-                        </Typography>
-                        <Typography
-                          variant="h6"
-                          color="textPrimary"
-                          style={{ fontWeight: 'bold' }}
-                        >
-                          <a
-                            href="https://artblocks.wiki/Community/Dutch-Auction-Results"
-                            target="_blank"
-                            style={{ color: 'blue' }}
+    <div>
+      <Container style={{ marginTop: 100 }}>
+        <Container maxWidth="sm" style={{ position: 'relative' }}>
+          <Paper
+            style={{
+              padding: 24,
+              paddingBottom: 10,
+              backgroundColor: '#151A1F',
+              borderRadius: 6,
+            }}
+          >
+            {!wallet.connected ? (
+              <ConnectButton>Connect Wallet</ConnectButton>
+            ) : (
+              <>
+                {candyMachine && (
+                  <Grid
+                    container
+                    direction="row"
+                    justifyContent="center"
+                    wrap="nowrap"
+                  >
+                    <Grid item xs={3}>
+                      <Typography variant="body2" color="textSecondary">
+                        Remaining
+                      </Typography>
+                      <Typography
+                        variant="h6"
+                        color="textPrimary"
+                        style={{
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {itemsRemaining}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={4}>
+                      <Typography variant="body2" color="textSecondary">
+                        {isWhitelistUser && discountPrice
+                          ? 'Discount Price'
+                          : 'Price'}
+                      </Typography>
+                      <Typography
+                        variant="h6"
+                        color="textPrimary"
+                        style={{ fontWeight: 'bold' }}
+                      >
+                        {isWhitelistUser && discountPrice
+                          ? `◎ ${formatNumber.asNumber(discountPrice)}`
+                          : `◎ ${formatNumber.asNumber(
+                              candyMachine.state.price,
+                            )}`}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={5} style={{ justifyContent: 'center' }}>
+                      {!isActive || isPresale ? (
+                        <>
+                          <Typography variant="body2" color="textSecondary">
+                            Auction Format
+                          </Typography>
+                          <Typography
+                            variant="h6"
+                            color="textPrimary"
+                            style={{ fontWeight: 'bold' }}
                           >
-                            Dutch Auction
-                          </a>
-                        </Typography>
-                      </>
-                    ) : nextDiscountTime &&
-                      new Date().getTime() < nextDiscountTime.getTime() ? (
-                      <>
-                        <DutchCountdown
-                          key={numIntervalsPassed}
-                          date={nextDiscountTime}
-                          style={{ justifyContent: 'center' }}
-                          onComplete={() => {
-                            if (numIntervalsPassed >= 9) return;
-                            CalcNextPriceDropTime();
-                            setNumIntervalsPassed(numIntervalsPassed + 1);
-                          }}
-                        />
-                        <Typography
-                          variant="caption"
-                          align="center"
-                          display="block"
-                          style={{ fontWeight: 'bold' }}
-                        >
-                          TO PRICE DROP
-                        </Typography>
-                      </>
-                    ) : (
-                      <>
-                        <Typography
-                          variant="h6"
-                          color="textPrimary"
-                          style={{ fontWeight: 'bold' }}
-                        >
-                          At Lowest Mint Price
-                        </Typography>
-                      </>
-                    )}
-                  </Grid>
-                  <Grid item xs={6}>
-                    {isActive && endDate && Date.now() < endDate.getTime() ? (
-                      <>
-                        <MintCountdown
-                          key="endSettings"
-                          date={getCountdownDate(candyMachine)}
-                          style={{ justifyContent: 'flex-end' }}
-                          status="COMPLETED"
-                          onComplete={toggleMintButton}
-                        />
-                        <Typography
-                          variant="caption"
-                          align="center"
-                          display="block"
-                          style={{ fontWeight: 'bold' }}
-                        >
-                          TO END OF MINT
-                        </Typography>
-                      </>
-                    ) : (
-                      <>
-                        <MintCountdown
-                          key="goLive"
-                          date={getCountdownDate(candyMachine)}
-                          style={{ justifyContent: 'flex-end' }}
-                          status={
-                            candyMachine?.state?.isSoldOut ||
-                            (endDate && Date.now() > endDate.getTime())
-                              ? 'COMPLETED'
-                              : isPresale
-                              ? 'PRESALE'
-                              : 'LIVE'
-                          }
-                          onComplete={toggleMintButton}
-                        />
-                        {isPresale &&
-                          candyMachine.state.goLiveDate &&
-                          candyMachine.state.goLiveDate.toNumber() >
-                            new Date().getTime() / 1000 && (
-                            <Typography
-                              variant="caption"
-                              align="center"
-                              display="block"
-                              style={{ fontWeight: 'bold' }}
+                            <a
+                              href="https://artblocks.wiki/Community/Dutch-Auction-Results"
+                              target="_blank"
+                              style={{ color: 'blue' }}
                             >
-                              UNTIL PUBLIC MINT
-                            </Typography>
-                          )}
-                      </>
-                    )}
+                              Dutch Auction
+                            </a>
+                          </Typography>
+                        </>
+                      ) : formatNumber.asNumber(candyMachine?.state.price) ===
+                        1 ? (
+                        <>
+                          <Typography
+                            variant="h6"
+                            color="textPrimary"
+                            style={{ fontWeight: 'bold' }}
+                          >
+                            At Lowest Mint Price
+                          </Typography>
+                        </>
+                      ) : formatNumber.asNumber(candyMachine?.state.price) ===
+                        nextDiscountPrice + 2 * PRICE_DECREMENT_AMT ? (
+                        //nextDiscountPrice will be 2 below current candy machine price after discount countdown but before candy machine updates
+                        <>
+                          <Typography
+                            variant="h6"
+                            color="textPrimary"
+                            style={{ fontWeight: 'bold' }}
+                          >
+                            Waiting for price update...
+                          </Typography>
+                        </>
+                      ) : nextDiscountTime &&
+                        new Date().getTime() < nextDiscountTime.getTime() ? (
+                        <>
+                          <DutchCountdown
+                            key={componentKeyToIncrement.current}
+                            date={nextDiscountTime}
+                            style={{ justifyContent: 'center' }}
+                            onComplete={() => {
+                              calcNextPriceDrop();
+                              componentKeyToIncrement.current =
+                                componentKeyToIncrement.current + 1;
+                            }}
+                          />
+                          <Typography
+                            variant="caption"
+                            align="center"
+                            display="block"
+                            style={{ fontWeight: 'bold' }}
+                          >
+                            TO PRICE DROP
+                          </Typography>
+                        </>
+                      ) : (
+                        <>
+                          <Typography
+                            variant="h6"
+                            color="textPrimary"
+                            style={{ fontWeight: 'bold' }}
+                          >
+                            Please Refresh Page
+                          </Typography>
+                        </>
+                      )}
+                    </Grid>
+                    <Grid item xs={6}>
+                      {isActive && endDate && Date.now() < endDate.getTime() ? (
+                        <>
+                          <MintCountdown
+                            key="endSettings"
+                            date={getCountdownDate(candyMachine)}
+                            style={{ justifyContent: 'flex-end' }}
+                            status="COMPLETED"
+                            onComplete={toggleMintButton}
+                          />
+                          <Typography
+                            variant="caption"
+                            align="center"
+                            display="block"
+                            style={{ fontWeight: 'bold' }}
+                          >
+                            TO END OF MINT
+                          </Typography>
+                        </>
+                      ) : (
+                        <>
+                          <MintCountdown
+                            key="goLive"
+                            date={getCountdownDate(candyMachine)}
+                            style={{ justifyContent: 'flex-end' }}
+                            status={
+                              candyMachine?.state?.isSoldOut ||
+                              (endDate && Date.now() > endDate.getTime())
+                                ? 'COMPLETED'
+                                : 'LIVE'
+                            }
+                            onComplete={() => {
+                              toggleMintButton();
+                              refreshCandyMachineState();
+                            }}
+                          />
+                          {isPresale &&
+                            candyMachine.state.goLiveDate &&
+                            candyMachine.state.goLiveDate.toNumber() >
+                              new Date().getTime() / 1000 && (
+                              <Typography
+                                variant="caption"
+                                align="center"
+                                display="block"
+                                style={{ fontWeight: 'bold' }}
+                              >
+                                UNTIL PUBLIC MINT
+                              </Typography>
+                            )}
+                        </>
+                      )}
+                    </Grid>
                   </Grid>
-                </Grid>
-              )}
-              <MintContainer>
-                {candyMachine?.state.isActive &&
-                candyMachine?.state.gatekeeper &&
-                wallet.publicKey &&
-                wallet.signTransaction ? (
-                  <GatewayProvider
-                    wallet={{
-                      publicKey:
-                        wallet.publicKey ||
-                        new PublicKey(CANDY_MACHINE_PROGRAM),
-                      //@ts-ignore
-                      signTransaction: wallet.signTransaction,
-                    }}
-                    gatekeeperNetwork={
-                      candyMachine?.state?.gatekeeper?.gatekeeperNetwork
-                    }
-                    clusterUrl={rpcUrl}
-                    handleTransaction={async (transaction: Transaction) => {
-                      setIsUserMinting(true);
-                      const userMustSign = transaction.signatures.find(sig =>
-                        sig.publicKey.equals(wallet.publicKey!),
-                      );
-                      if (userMustSign) {
-                        setAlertState({
-                          open: true,
-                          message: 'Please sign one-time Civic Pass issuance',
-                          severity: 'info',
-                        });
+                )}
+                <MintContainer>
+                  {candyMachine?.state.isActive &&
+                  candyMachine?.state.gatekeeper &&
+                  wallet.publicKey &&
+                  wallet.signTransaction ? (
+                    <GatewayProvider
+                      wallet={{
+                        publicKey:
+                          wallet.publicKey ||
+                          new PublicKey(CANDY_MACHINE_PROGRAM),
+                        //@ts-ignore
+                        signTransaction: wallet.signTransaction,
+                      }}
+                      gatekeeperNetwork={
+                        candyMachine?.state?.gatekeeper?.gatekeeperNetwork
+                      }
+                      clusterUrl={rpcUrl}
+                      handleTransaction={async (transaction: Transaction) => {
+                        setIsUserMinting(true);
+                        const userMustSign = transaction.signatures.find(sig =>
+                          sig.publicKey.equals(wallet.publicKey!),
+                        );
+                        if (userMustSign) {
+                          setAlertState({
+                            open: true,
+                            message: 'Please sign one-time Civic Pass issuance',
+                            severity: 'info',
+                          });
+                          try {
+                            transaction = await wallet.signTransaction!(
+                              transaction,
+                            );
+                          } catch (e) {
+                            setAlertState({
+                              open: true,
+                              message: 'User cancelled signing',
+                              severity: 'error',
+                            });
+                            // setTimeout(() => window.location.reload(), 2000);
+                            setIsUserMinting(false);
+                            throw e;
+                          }
+                        } else {
+                          setAlertState({
+                            open: true,
+                            message: 'Refreshing Civic Pass',
+                            severity: 'info',
+                          });
+                        }
                         try {
-                          transaction = await wallet.signTransaction!(
+                          await sendTransaction(
+                            props.connection,
+                            wallet,
                             transaction,
+                            [],
+                            true,
+                            'confirmed',
                           );
+                          setAlertState({
+                            open: true,
+                            message: 'Please sign minting',
+                            severity: 'info',
+                          });
                         } catch (e) {
                           setAlertState({
                             open: true,
-                            message: 'User cancelled signing',
-                            severity: 'error',
+                            message:
+                              'Solana dropped the transaction, please try again',
+                            severity: 'warning',
                           });
+                          console.error(e);
                           // setTimeout(() => window.location.reload(), 2000);
                           setIsUserMinting(false);
                           throw e;
                         }
-                      } else {
-                        setAlertState({
-                          open: true,
-                          message: 'Refreshing Civic Pass',
-                          severity: 'info',
-                        });
-                      }
-                      try {
-                        await sendTransaction(
-                          props.connection,
-                          wallet,
-                          transaction,
-                          [],
-                          true,
-                          'confirmed',
-                        );
-                        setAlertState({
-                          open: true,
-                          message: 'Please sign minting',
-                          severity: 'info',
-                        });
-                      } catch (e) {
-                        setAlertState({
-                          open: true,
-                          message:
-                            'Solana dropped the transaction, please try again',
-                          severity: 'warning',
-                        });
-                        console.error(e);
-                        // setTimeout(() => window.location.reload(), 2000);
-                        setIsUserMinting(false);
-                        throw e;
-                      }
-                      await onMint();
-                    }}
-                    broadcastTransaction={false}
-                    options={{ autoShowModal: false }}
-                  >
+                        await onMint();
+                      }}
+                      broadcastTransaction={false}
+                      options={{ autoShowModal: false }}
+                    >
+                      <MintButton
+                        candyMachine={candyMachine}
+                        isMinting={isUserMinting}
+                        setIsMinting={val => setIsUserMinting(val)}
+                        onMint={onMint}
+                        isActive={isActive || (isPresale && isWhitelistUser)}
+                      />
+                    </GatewayProvider>
+                  ) : (
                     <MintButton
                       candyMachine={candyMachine}
                       isMinting={isUserMinting}
@@ -659,49 +723,46 @@ const Home = (props: HomeProps) => {
                       onMint={onMint}
                       isActive={isActive || (isPresale && isWhitelistUser)}
                     />
-                  </GatewayProvider>
-                ) : (
-                  <MintButton
-                    candyMachine={candyMachine}
-                    isMinting={isUserMinting}
-                    setIsMinting={val => setIsUserMinting(val)}
-                    onMint={onMint}
-                    isActive={isActive || (isPresale && isWhitelistUser)}
-                  />
-                )}
-              </MintContainer>
-            </>
-          )}
-          <Typography
-            variant="caption"
-            align="center"
-            display="block"
-            style={{ marginTop: 7, color: 'grey', fontSize: 'medium' }}
-          >
-            <a
-              href="https://atrix.finance"
-              target="_blank"
-              style={{ color: 'blue' }}
+                  )}
+                </MintContainer>
+              </>
+            )}
+            <Typography
+              variant="caption"
+              align="center"
+              display="block"
+              style={{ marginTop: 7, color: 'grey', fontSize: 'medium' }}
             >
-              Atrix
-            </a>
-          </Typography>
-        </Paper>
-      </Container>
+              <a
+                href="https://atrix.finance"
+                target="_blank"
+                style={{ color: 'blue' }}
+              >
+                Atrix
+              </a>
+            </Typography>
+          </Paper>
+        </Container>
 
-      <Snackbar
-        open={alertState.open}
-        autoHideDuration={alertState.noHide ? null : 6000}
-        onClose={() => setAlertState({ ...alertState, open: false })}
-      >
-        <Alert
+        <Snackbar
+          open={alertState.open}
+          autoHideDuration={alertState.noHide ? null : 6000}
           onClose={() => setAlertState({ ...alertState, open: false })}
-          severity={alertState.severity}
         >
-          {alertState.message}
-        </Alert>
-      </Snackbar>
-    </Container>
+          <Alert
+            onClose={() => setAlertState({ ...alertState, open: false })}
+            severity={alertState.severity}
+          >
+            {alertState.message}
+          </Alert>
+        </Snackbar>
+        <img
+          src={Atrix_logo}
+          style={{ position: 'absolute', top: 160 }}
+          alt="Atrix logo"
+        ></img>
+      </Container>
+    </div>
   );
 };
 
