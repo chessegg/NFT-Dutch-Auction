@@ -283,13 +283,21 @@ const Home = (props: HomeProps) => {
             .on('change', account => {
               console.log('account is', account);
               if (!anchorWallet) return;
-              //don't really need to set anything other than itemsRemaining,
-              //nothing else can really change by user manipulation
-              //   const numItemsRemaining = {account.data.map((value, key) => {
-              //     value.itemsAvailable;
-              // })};
-              //   setItemsRemaining(numItemsRemaining);
-              refreshCandyMachineState();
+              console.log(
+                'account.data.price is',
+                formatNumber.asNumber(account.data.price),
+              );
+              console.log(
+                'account.itemsRedeemed is',
+                account.itemsRedeemed.toNumber(),
+              );
+              cndy.state.price = account.data.price;
+              cndy.state.itemsAvailable =
+                SOL_STARTING_PRICE - account.itemsRedeemed.toNumber();
+              setItemsRemaining(
+                SOL_STARTING_PRICE - account.itemsRedeemed.toNumber(),
+              );
+              setCandyMachine(cndy);
             });
           setIsSubscribed(true);
         }
