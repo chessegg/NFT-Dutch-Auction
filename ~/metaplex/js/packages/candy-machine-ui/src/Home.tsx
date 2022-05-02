@@ -7,7 +7,7 @@ import Paper from '@material-ui/core/Paper';
 import Alert from '@material-ui/lab/Alert';
 import Grid from '@material-ui/core/Grid';
 import Typography from '@material-ui/core/Typography';
-import { PublicKey, Transaction } from '@solana/web3.js';
+import { Authorized, PublicKey, Transaction } from '@solana/web3.js';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletDialogButton } from '@solana/wallet-adapter-material-ui';
 import {
@@ -23,6 +23,18 @@ import { MintButton } from './MintButton';
 import { GatewayProvider } from '@civic/solana-gateway-react';
 import { sendTransaction } from './connection';
 import Atrix_logo from './Atrix.png';
+import {
+  NFT_0,
+  NFT_1,
+  NFT_2,
+  NFT_3,
+  NFT_4,
+  NFT_5,
+  NFT_6,
+  NFT_7,
+  NFT_8,
+  NFT_9,
+} from './nft-pngs';
 import { EventEmitter } from 'stream';
 import { start } from 'repl';
 import { time } from 'console';
@@ -64,6 +76,7 @@ const Home = (props: HomeProps) => {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [nextDiscountTime, setNextDiscountTime] = useState<Date>();
   const SOL_STARTING_PRICE = 10;
+  const NUM_TOTAL_NFTS = 10;
   const PRICE_DECREMENT_AMT = 1; //drop price 1 sol after every time increment
   const [nextDiscountPrice, setNextDiscountPrice] = useState(
     SOL_STARTING_PRICE - PRICE_DECREMENT_AMT,
@@ -72,6 +85,30 @@ const Home = (props: HomeProps) => {
   const wallet = useWallet();
   const rpcUrl = props.rpcHost;
   const DUTCH_INTERVAL_MINS = 1;
+
+  const nftArray = [
+    NFT_0,
+    NFT_1,
+    NFT_2,
+    NFT_3,
+    NFT_4,
+    NFT_5,
+    NFT_6,
+    NFT_7,
+    NFT_8,
+    NFT_9,
+  ];
+
+  let myArray: Array<any> = [];
+  for (let i = 0; i < NUM_TOTAL_NFTS; i++) {
+    myArray.push({
+      number: i,
+      title: 'NFT ' + i.toString(),
+      image: nftArray[i],
+    });
+  }
+
+  console.log(myArray);
 
   useEffect(() => {
     console.log('getting called from use effect');
@@ -126,19 +163,24 @@ const Home = (props: HomeProps) => {
         setNextDiscountTime(goLive);
         setNextDiscountPrice(SOL_STARTING_PRICE - PRICE_DECREMENT_AMT);
       } else {
-        if (numIntervalsPassed < 9) {
+        if (numIntervalsPassed < 10) {
           //console.log('calculating next price drop time');
-          const discountTime: Date = toDate(candyMachine.state.goLiveDate)!;
-          discountTime.setMinutes(
-            discountTime.getMinutes() +
-              DUTCH_INTERVAL_MINS * numIntervalsPassed +
-              1,
-          );
-          setNextDiscountTime(discountTime);
-          setNextDiscountPrice(
-            SOL_STARTING_PRICE - numIntervalsPassed - PRICE_DECREMENT_AMT,
-          );
-          //console.log('next price drop time set to', discountTime);
+          if (numIntervalsPassed === 9) {
+            //so that when price is updating from 2 to 1 after countdown, it still shows price updating screen (triggered by candyMachine price - nextDiscountPrice = 2)
+            setNextDiscountPrice(0);
+          } else {
+            const discountTime: Date = toDate(candyMachine.state.goLiveDate)!;
+            discountTime.setMinutes(
+              discountTime.getMinutes() +
+                DUTCH_INTERVAL_MINS * numIntervalsPassed +
+                1,
+            );
+            setNextDiscountTime(discountTime);
+            setNextDiscountPrice(
+              SOL_STARTING_PRICE - numIntervalsPassed - PRICE_DECREMENT_AMT,
+            );
+            //console.log('next price drop time set to', discountTime);
+          }
         } else {
           numIntervalsPassed = -1;
         }
@@ -293,9 +335,9 @@ const Home = (props: HomeProps) => {
               );
               cndy.state.price = account.data.price;
               cndy.state.itemsAvailable =
-                SOL_STARTING_PRICE - account.itemsRedeemed.toNumber();
+                NUM_TOTAL_NFTS - account.itemsRedeemed.toNumber();
               setItemsRemaining(
-                SOL_STARTING_PRICE - account.itemsRedeemed.toNumber(),
+                NUM_TOTAL_NFTS - account.itemsRedeemed.toNumber(),
               );
               setCandyMachine(cndy);
             });
@@ -451,6 +493,18 @@ const Home = (props: HomeProps) => {
 
   return (
     <div>
+      {/* <img
+        src={Atrix_logo}
+        height={60}
+        width={200}
+        style={{
+          position: 'absolute',
+          top: 20,
+          //marginLeft: '15%',
+        }}
+        alt="Atrix logo"
+      ></img> */}
+
       <Container style={{ marginTop: 100 }}>
         <Container maxWidth="sm" style={{ position: 'relative' }}>
           <Paper
@@ -472,7 +526,7 @@ const Home = (props: HomeProps) => {
                     justifyContent="center"
                     wrap="nowrap"
                   >
-                    <Grid item xs={3}>
+                    <Grid item xs={6}>
                       <Typography variant="body2" color="textSecondary">
                         Remaining
                       </Typography>
@@ -480,13 +534,14 @@ const Home = (props: HomeProps) => {
                         variant="h6"
                         color="textPrimary"
                         style={{
+                          textAlign: 'center',
                           fontWeight: 'bold',
                         }}
                       >
                         {itemsRemaining}
                       </Typography>
                     </Grid>
-                    <Grid item xs={4}>
+                    <Grid item xs={6}>
                       <Typography variant="body2" color="textSecondary">
                         {isWhitelistUser && discountPrice
                           ? 'Discount Price'
@@ -504,7 +559,7 @@ const Home = (props: HomeProps) => {
                             )}`}
                       </Typography>
                     </Grid>
-                    <Grid item xs={5} style={{ justifyContent: 'center' }}>
+                    <Grid item xs={6} style={{ justifyContent: 'center' }}>
                       {!isActive || isPresale ? (
                         <>
                           <Typography variant="body2" color="textSecondary">
@@ -530,7 +585,7 @@ const Home = (props: HomeProps) => {
                           <Typography
                             variant="h6"
                             color="textPrimary"
-                            style={{ fontWeight: 'bold' }}
+                            style={{ textAlign: 'center', fontWeight: 'bold' }}
                           >
                             At Lowest Mint Price
                           </Typography>
@@ -542,7 +597,7 @@ const Home = (props: HomeProps) => {
                           <Typography
                             variant="h6"
                             color="textPrimary"
-                            style={{ fontWeight: 'bold' }}
+                            style={{ textAlign: 'center', fontWeight: 'bold' }}
                           >
                             Waiting for price update...
                           </Typography>
@@ -564,7 +619,7 @@ const Home = (props: HomeProps) => {
                             variant="caption"
                             align="center"
                             display="block"
-                            style={{ fontWeight: 'bold' }}
+                            style={{ textAlign: 'center', fontWeight: 'bold' }}
                           >
                             TO PRICE DROP
                           </Typography>
@@ -574,7 +629,7 @@ const Home = (props: HomeProps) => {
                           <Typography
                             variant="h6"
                             color="textPrimary"
-                            style={{ fontWeight: 'bold' }}
+                            style={{ textAlign: 'center', fontWeight: 'bold' }}
                           >
                             Please Refresh Page
                           </Typography>
@@ -741,13 +796,13 @@ const Home = (props: HomeProps) => {
               display="block"
               style={{ marginTop: 7, color: 'grey', fontSize: 'medium' }}
             >
-              <a
+              {/* <a
                 href="https://atrix.finance"
                 target="_blank"
                 style={{ color: 'blue' }}
               >
                 Atrix
-              </a>
+              </a> */}
             </Typography>
           </Paper>
         </Container>
@@ -764,12 +819,47 @@ const Home = (props: HomeProps) => {
             {alertState.message}
           </Alert>
         </Snackbar>
-        <img
-          src={Atrix_logo}
-          style={{ position: 'absolute', top: 160 }}
-          alt="Atrix logo"
-        ></img>
       </Container>
+
+      {/* <Grid
+        container
+        xs={true}
+        sm={true}
+        md={true}
+        style={{
+          //backgroundColor: 'red',
+          color: 'white',
+          marginTop: 70,
+          textAlign: 'center',
+        }}
+        direction="row"
+        justify-content="left"
+        spacing={2}
+        wrap="wrap"
+      >
+        {myArray.map((item, index) => (
+          <Grid
+            style={{
+              width: 300,
+              height: 300,
+              //backgroundColor: 'blue',
+            }}
+            item
+            xs={6}
+            sm={4}
+            md={2}
+            key={index}
+          >
+            <img
+              src={item.image}
+              width={150}
+              height={150}
+              alt={item.title}
+            ></img>
+            <Typography variant="h6">{item.title}</Typography>
+          </Grid>
+        ))}
+      </Grid> */}
     </div>
   );
 };
