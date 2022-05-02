@@ -1,1 +1,27 @@
-{"price": 4, "number": 10, "gatekeeper": {"gatekeeperNetwork": "ignREusXmGrscGNUesoU9mxfds9AiYTezUKex2PsZV6", "expireOnUse": true}, "solTreasuryAccount": "2MCFMHJCS7uyR1FuMKjwC9xPSHkn3goUAFn4iZd1jYmC", "splTokenAccount": null, "splToken": null, "goLiveDate": "2 May 2022 6:00:00 GMT", "endSettings": null, "whitelistMintSettings": {"mode": {"neverBurn": true}, "mint": "4yXSonbfUQQ1Kre6mLcqBmEWFoZyfAzF74SUQJrDjcFK", "presale": true, "discountPrice": null}, "hiddenSettings": null, "storage": "arweave", "ipfsInfuraProjectId": null, "ipfsInfuraSecret": null, "awsS3Bucket": null, "nftStorageKey": null, "noRetainAuthority": false, "noMutable": false}
+{
+  "price": 10,
+  "number": 10,
+  "gatekeeper": {
+    "gatekeeperNetwork": "ignREusXmGrscGNUesoU9mxfds9AiYTezUKex2PsZV6",
+    "expireOnUse": true
+  },
+  "solTreasuryAccount": "2MCFMHJCS7uyR1FuMKjwC9xPSHkn3goUAFn4iZd1jYmC",
+  "splTokenAccount": null,
+  "splToken": null,
+  "goLiveDate": "2 May 2022 6:00:00 GMT",
+  "endSettings": null,
+  "whitelistMintSettings": {
+    "mode": { "neverBurn": true },
+    "mint": "4yXSonbfUQQ1Kre6mLcqBmEWFoZyfAzF74SUQJrDjcFK",
+    "presale": true,
+    "discountPrice": null
+  },
+  "hiddenSettings": null,
+  "storage": "arweave",
+  "ipfsInfuraProjectId": null,
+  "ipfsInfuraSecret": null,
+  "awsS3Bucket": null,
+  "nftStorageKey": null,
+  "noRetainAuthority": false,
+  "noMutable": false
+}
